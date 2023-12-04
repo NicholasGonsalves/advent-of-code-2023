@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{cmp::min, collections::HashSet};
 
 fn main() {
     fn create_split_hashset(numbers: &str) -> HashSet<u32> {
@@ -31,4 +31,20 @@ fn main() {
         .sum();
 
     println!("{}", winnings);
+
+    // Part 2:
+    let all_scorecards = include_str!("day4.txt").lines().collect::<Vec<&str>>();
+
+    // Luckily, a scorecard win can only give you more *later* scorecards, (so we can start from the beginning).
+    let mut counts = vec![1_u32; all_scorecards.len()];
+
+    for (i, &line) in all_scorecards.iter().enumerate() {
+        let winnings = count_matches(line);
+        for j in i..min(i + usize::try_from(winnings).unwrap(), all_scorecards.len()) {
+            counts[j + 1] += counts[i];
+        }
+    }
+
+    let total_scorecards: u32 = counts.iter().sum();
+    println!("{:#?}", total_scorecards);
 }
