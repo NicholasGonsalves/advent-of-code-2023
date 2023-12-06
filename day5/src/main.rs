@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, cmp::{min, max}};
 
 #[derive(Debug)]
 struct Range {
@@ -37,6 +37,7 @@ fn main() {
         HashMap::from([(map_name, ranges)])
     }
 
+    /// Recursively walk through the graph, updating the value as each range applies an offset
     fn walk_graph(mappings: &HashMap<&str, Vec<Range>>, mut value: u64, start_node: &str) -> u64 {
         let current_node = mappings
             .keys()
@@ -83,4 +84,15 @@ fn main() {
         .min();
 
     println!("{:?}", closest_location);
+
+    // Part 2: We can't brute force for every single seed.. but lets try anyway
+    let closest_location_seed_ranges = seeds
+        .chunks(2)
+        .flat_map(|range|range[0]..(range[0]+range[1]))
+        .fold(u64::MAX, |global_minumum, seed| {
+            min(global_minumum, walk_graph(&mappings, seed, "seed"))
+        });
+
+    println!("{:?}", closest_location_seed_ranges);  // Nope!
+
 }
