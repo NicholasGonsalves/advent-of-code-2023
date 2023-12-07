@@ -1,4 +1,5 @@
-use std::{collections::HashMap, cmp::{min, max}};
+use std::collections::HashMap;
+use rayon::prelude::*;
 
 #[derive(Debug)]
 struct Range {
@@ -85,14 +86,16 @@ fn main() {
 
     println!("{:?}", closest_location);
 
-    // Part 2: We can't brute force for every single seed.. but lets try anyway
+    // Part 2: We can't brute force for every single seed.. unless we can.
     let closest_location_seed_ranges = seeds
+        .into_par_iter()
         .chunks(2)
         .flat_map(|range|range[0]..(range[0]+range[1]))
-        .fold(u64::MAX, |global_minumum, seed| {
-            min(global_minumum, walk_graph(&mappings, seed, "seed"))
-        });
+        .map(|seed| walk_graph(&mappings, seed, "seed"))
+        .min();
 
-    println!("{:?}", closest_location_seed_ranges);  // Nope!
+    println!("{:?}", closest_location_seed_ranges);  // Yes! Rayon + Release build ~1min. 
+
+    // cargo run --release
 
 }
