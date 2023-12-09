@@ -20,6 +20,7 @@ fn main() {
         return predict(diffs) + history.last().unwrap();
     }
 
+    // Part 1
     let prediction_sum: i64 = include_str!("day9.txt")
         .lines()
         .map(parse_history)
@@ -27,4 +28,14 @@ fn main() {
         .sum();
 
     println!("{}", prediction_sum);
+
+    // Part 2
+    let prediction_sum_rev: i64 = include_str!("day9.txt")
+        .lines()
+        .map(parse_history)
+        .map(|history| history.into_iter().rev().collect())
+        .map(predict)
+        .sum();
+
+    println!("{}", prediction_sum_rev);
 }
