@@ -1,4 +1,24 @@
 use std::{cmp::Ordering, collections::HashMap};
+use itertools::Itertools;  // Used to sort within chained flow
+
+fn custom_card_order(c: &char) -> u8 {
+    match c {
+        'A' => 1,
+        'K' => 2,
+        'Q' => 3,
+        'J' => 4,
+        'T' => 5,
+        '9' => 6,
+        '8' => 7,
+        '7' => 8,
+        '6' => 9,
+        '5' => 10,
+        '4' => 11,
+        '3' => 12,
+        '2' => 13,
+        _ => panic!("{} isn't a card in camel poker!", c),
+    }
+}
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 enum HandType {
@@ -15,11 +35,27 @@ enum HandType {
 struct Hand {
     cards: Vec<char>,
     htype: HandType,
+    bid: u32,
 }
 
 impl Ord for Hand {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.htype.cmp(&other.htype)  // todo we must consider cards too, if we have matching htypes
+        let primary_cmp =  self.htype.cmp(&other.htype);
+
+        // If htypes properties are equal, compare based on actual cards
+        if primary_cmp == std::cmp::Ordering::Equal {
+            for i in 0..self.cards.len() {
+                match custom_card_order(self.cards.get(i).unwrap()).cmp(&custom_card_order(&other.cards.get(i).unwrap())) {
+                    Ordering::Equal => continue,
+                    result => return result,
+                }
+            }
+
+            // If all specified positions are equal, consider the structs equal
+            Ordering::Equal
+        } else {
+            primary_cmp
+        }
     }
 }
 
@@ -38,12 +74,22 @@ impl PartialEq for Hand {
 impl Eq for Hand {}
 
 impl Hand {
-    fn new(cards: &str) -> Hand {
+    fn new(cards: &str, bid: u32) -> Hand {
         let cards_vec = cards.chars().collect::<Vec<char>>();
         Hand {
             cards: cards_vec.clone(),
             htype: Hand::compute_rank(cards_vec),
+            bid: bid,
         }
+    }
+
+    fn default(cards: &str) -> Hand {
+        Hand::new(cards, 0)
+    }
+
+    fn from_line(line: &str) -> Hand {
+        let (cards, bid_str) = line.split_once(" ").unwrap();
+        Hand::new(cards, bid_str.parse::<u32>().unwrap())
     }
 
     fn compute_rank(cards: Vec<char>) -> HandType {
@@ -90,9 +136,17 @@ fn main() {
     // Camel Poker
 
     // Part 1
-    println!("{:?}", Hand::new("AAAAA"));
+    let winnings_part_1: u32 = include_str!("day7.txt").
+        lines()
+        .map(Hand::from_line)
+        .sorted()
+        .rev()
+        .enumerate()
+        .map(|(rank, hand)| hand.bid * (rank+1) as u32)
+        .sum();
 
-    // let examples =
+    println!("{:?}", winnings_part_1);
+
 }
 
 #[cfg(test)]
@@ -132,23 +186,25 @@ mod tests {
     #[test]
     fn test_hand_type_ordering_and_eq() {
         let mut shuffled_hands = vec![
-            Hand::new("AAAAB"),
-            Hand::new("AABCD"),
-            Hand::new("AAAAA"),
-            Hand::new("ABCDE"),
-            Hand::new("AAABC"),
-            Hand::new("AABBC"),
-            Hand::new("AAABB"),
+            Hand::default("AAAAB"),
+            Hand::default("AABCD"),
+            Hand::default("22222"),
+            Hand::default("AAAAA"),
+            Hand::default("ABCDE"),
+            Hand::default("AAABC"),
+            Hand::default("AABBC"),
+            Hand::default("AAABB"),
         ];
 
         let expected_order = vec![
-            Hand::new("AAAAA"),
-            Hand::new("AAAAB"),
-            Hand::new("AAABB"),
-            Hand::new("AAABC"),
-            Hand::new("AABBC"),
-            Hand::new("AABCD"),
-            Hand::new("ABCDE"),
+            Hand::default("AAAAA"),  // Note, AAAAA and 22222 have same type,
+            Hand::default("22222"),  // so ordering is based on our custom_card_order func!
+            Hand::default("AAAAB"),
+            Hand::default("AAABB"),
+            Hand::default("AAABC"),
+            Hand::default("AABBC"),
+            Hand::default("AABCD"),
+            Hand::default("ABCDE"),
         ];
 
         assert_ne!(expected_order, shuffled_hands);
