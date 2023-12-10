@@ -92,60 +92,53 @@ fn step(pos: Pos, mut visited: Vec<Pos>, start: Pos, grid: &Vec<Vec<char>>) -> V
     return step(next_pos, visited, start, grid);
 }
 
+// Use ray casting technique from graphics software (apparently!) whereby we
+// cast out a ray in some direction, and if it intersects the object boundary (our path!)
+// and *even* number of times, then it's outside the object,
+// otherwise (*odd* intersections) it's inside.
+fn cast_ray(
+    interesctions: i32,
+    pos: Pos,
+    boundary: Vec<(isize, isize)>,
+    grid: &Vec<Vec<char>>,
+) -> i32 {
+    // Cast ray in some direction, count boundary intersections
+    if !in_bounds(pos.0, pos.1, grid) {
+        return interesctions;
+    }
+    let intersections = match boundary.contains(&pos) {
+        true => match grid[pos.0 as usize][pos.1 as usize] {
+            'L' | '7' => interesctions, // don't count corners!
+            _ => interesctions + 1,
+        },
+        false => interesctions,
+    };
+    // Cast ray along diagonal (otherwise we get weird edge cases if we cast a ray along a boundary!)
+    cast_ray(intersections, (pos.0 + 1, pos.1 + 1), boundary, grid)
+}
+
+fn is_inside(pos: Pos, boundary: Vec<(isize, isize)>, grid: &Vec<Vec<char>>) -> bool {
+    if boundary.contains(&pos) {
+        return false;
+    }
+    // If we have odd intersections along the diaongal then we are inside
+    cast_ray(0, pos, boundary.clone(), grid) % 2 == 1
+}
+
 fn main() {
-    // Part 1
     // Load into grid
     let grid = include_str!("day10.txt")
         .lines()
         .map(|line| line.chars().collect::<Vec<char>>())
         .collect::<Vec<Vec<char>>>();
 
-    // Find start position
+    // Part 1
     let start = find_start(&grid);
-
-    // Walk route!
     let route = step(start, vec![], start, &grid);
-
-    // Find distance to furthest point
     let furthest_dist = route.len().div(2);
-
     println!("{:?}", furthest_dist);
 
     // Part 2
-    fn cast_ray(
-        interesctions: i32,
-        pos: Pos,
-        boundary: Vec<(isize, isize)>,
-        grid: &Vec<Vec<char>>,
-    ) -> i32 {
-        // Cast ray in some direction, count boundary intersections
-        if !in_bounds(pos.0, pos.1, grid) {
-            return interesctions;
-        }
-        // and c2 != "L" and c2 != "7"
-        let intersections = match boundary.contains(&pos) {
-            true => match grid[pos.0 as usize][pos.1 as usize] {
-                'L' | '7' => interesctions, // don't count corners!
-                _ => interesctions + 1,
-            },
-            false => interesctions,
-        };
-        // Cast ray along diagonal (otherwise we get weird edge cases if we cast a ray along a boundary!)
-        cast_ray(intersections, (pos.0 + 1, pos.1 + 1), boundary, grid)
-    }
-
-    // Use ray casting technique from graphics software (apparently!) whereby we
-    // cast out a ray in some direction, and if it intersects the object boundary (our path!)
-    // and *even* number of times, then it's outside the object,
-    // otherwise (*odd* intersections) it's inside.
-    fn is_inside(pos: Pos, boundary: Vec<(isize, isize)>, grid: &Vec<Vec<char>>) -> bool {
-        if boundary.contains(&pos) {
-            return false;
-        }
-        // If we have odd intersections along the diaongal then we are inside
-        cast_ray(0, pos, boundary.clone(), grid) % 2 == 1
-    }
-
     // For every point, raycast and count number of points with odd intersections
     let mut inside_area = 0;
     for i in 0..grid.len() {
