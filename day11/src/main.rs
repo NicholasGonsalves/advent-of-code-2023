@@ -14,19 +14,18 @@ where
 fn expand_universe_vertical_pass(universe: Vec<Vec<char>>) -> Vec<Vec<char>> {
     let mut expanded = Vec::<Vec<char>>::new();
 
-    for row in universe {
-        if row.iter().all(|val| val == &'.') {
-            expanded.push(row.clone());
-            expanded.push(row);
+    for row in &universe {
+        if row.iter().all(|val| val == &'.' || val == &'@') {
+            expanded.push((0..universe.len()).map(|_| '@').collect::<Vec<char>>());
         } else {
-            expanded.push(row);
+            expanded.push(row.clone());
         }
     }
 
     expanded
 }
 
-fn find_galaxy_positions(expanded: Vec<Vec<char>>) -> Vec<(usize, usize)> {
+fn find_galaxy_positions(expanded: &Vec<Vec<char>>) -> Vec<(usize, usize)> {
     let mut galaxy_positions = Vec::<(usize, usize)>::new();
     for i in 0..expanded.len() {
         for j in 0..expanded[0].len() {
@@ -41,8 +40,39 @@ fn find_galaxy_positions(expanded: Vec<Vec<char>>) -> Vec<(usize, usize)> {
     galaxy_positions
 }
 
-fn distance(p1: &(usize, usize), p2: &(usize, usize)) -> usize {
-    p1.0.abs_diff(p2.0) + p1.1.abs_diff(p2.1)
+fn distance(
+    p1: &(usize, usize),
+    p2: &(usize, usize),
+    expansion_constant: usize,
+    expanded_universe: &Vec<Vec<char>>,
+) -> usize {
+    // Count number of @ (wormhole!) crossings
+    let (mut x1, mut y1) = p1.clone();
+    let (mut x2, mut y2) = p2.clone();
+
+    // Swap so we always walk from smaller to larger value
+    if x1 > x2 {
+        (x1, x2) = (x2.clone(), x1.clone());
+    }
+    if y1 > y2 {
+        (y1, y2) = (y2.clone(), y1.clone());
+    }
+
+    // 'Walk' between galaxies and count the number of wormhole crossings
+    let mut wormholes = 0;
+    for i in x1..x2 + 1 {
+        if expanded_universe[i][y1] == '@' {
+            wormholes += 1;
+        }
+    }
+    for j in y1..y2 + 1 {
+        if expanded_universe[x2][j] == '@' {
+            wormholes += 1;
+        }
+    }
+
+    // Calculate the distance, including the addtional distances that the 'wormholes' represent
+    p1.0.abs_diff(p2.0) + p1.1.abs_diff(p2.1) + (wormholes * expansion_constant) - wormholes
 }
 
 fn main() {
@@ -52,22 +82,13 @@ fn main() {
         .map(|line| line.chars().collect())
         .collect::<Vec<Vec<char>>>();
 
-    // Display universe
-    // universe.iter().for_each(|it| {
-    //     println!("{:?}", it);
-    // });
-
     // Expand univese (we can use our simple vertical expansion for both directions if we transpose array!)
+    // Expansion modified to handle very large expansion constants - we mark the expansion boundary with @ (a wormhole?!)
     let expanded = transpose(expand_universe_vertical_pass(transpose(
         expand_universe_vertical_pass(universe),
     )));
 
-    // Display expansion
-    // expanded.iter().for_each(|it| {
-    //     println!("{:?}", it);
-    // });
-
-    let galaxy_positions = find_galaxy_positions(expanded);
+    let galaxy_positions = find_galaxy_positions(&expanded);
 
     let unique_pairs = galaxy_positions
         .iter()
@@ -82,10 +103,18 @@ fn main() {
         .collect::<Vec<(&(usize, usize), &(usize, usize))>>();
 
     // Calculate total distance between all pairs
-    let total_distance: usize = unique_pairs
-        .into_iter()
-        .map(|(p1, p2)| distance(p1, p2))
+    let total_distance_expansion_2: usize = unique_pairs
+        .iter()
+        .map(|(p1, p2)| distance(p1, p2, 2, &expanded))
         .sum();
 
-    println!("{}", total_distance);
+    println!("{}", total_distance_expansion_2);
+
+    // Part 2
+    let total_distance_expansion_1_000_000: usize = unique_pairs
+        .iter()
+        .map(|(p1, p2)| distance(p1, p2, 1_000_000, &expanded))
+        .sum();
+
+    println!("{}", total_distance_expansion_1_000_000);
 }
