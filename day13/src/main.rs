@@ -1,4 +1,4 @@
-use std::cmp::min;
+use std::{cmp::min, iter::zip};
 
 /// standard 2d array transpose https://stackoverflow.com/a/64499219
 fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>>
@@ -12,8 +12,8 @@ where
 }
 
 fn validate_vertical_reflection(grid: &Vec<Vec<char>>, boundary: usize) -> bool {
-    let steps = min(boundary, grid.len() - boundary - 2);
-    for i in 0..steps + 1 {
+    let steps = min(boundary + 1, grid.len() - boundary - 1);
+    for i in 1..steps {
         if grid[boundary - i] != grid[boundary + i + 1] {
             return false;
         }
@@ -21,32 +21,91 @@ fn validate_vertical_reflection(grid: &Vec<Vec<char>>, boundary: usize) -> bool 
     true
 }
 
-fn vertical_scan(grid: &Vec<Vec<char>>) -> usize {
-    // Find all possible reflection start points (two identical continuous rows)
-    let start_points: Vec<usize> = grid[1..]
-        .iter()
-        .enumerate()
-        .map(|(i, row)| if row == &grid[i] { i } else { usize::MAX })
-        .filter(|i| i < &usize::MAX)
-        .collect();
+fn validate_vertical_reflection_smudge(grid: &Vec<Vec<char>>, boundary: usize) -> bool {
+    let mut smudge_count = 0;
+    let steps = min(boundary + 1, grid.len() - boundary - 1);
+    for i in 1..steps {
+        if grid[boundary - i] == grid[boundary + i + 1] {
+            continue;
+        }
+        if off_by_smudge(&grid[boundary - i], &grid[boundary + i + 1]) {
+            if smudge_count < 1 {
+                smudge_count += 1
+            } else {
+                return false;
+            }
+        }
+    }
+    smudge_count == 1
+}
 
-    // If we see more than one validate each on whole grid
-    for start_point in start_points.into_iter() {
-        if validate_vertical_reflection(grid, start_point) {
-            return start_point;
+fn vertical_scan(grid: &Vec<Vec<char>>, smudge: bool) -> usize {
+    // Find all possible reflection start points (two identical continuous rows)
+    if smudge {
+        // Try smudged start points
+        for start_point in find_start_points(grid, true) {
+            if validate_vertical_reflection(grid, start_point) {
+                return start_point;
+            }
+        }
+        // Try normal start points, but smudged reflection checks
+        for start_point in find_start_points(grid, false) {
+            if validate_vertical_reflection_smudge(grid, start_point) {
+                return start_point;
+            }
+        }
+    } else {
+        // Exact matches only
+        for start_point in find_start_points(grid, false) {
+            if validate_vertical_reflection(grid, start_point) {
+                return start_point;
+            }
         }
     }
     return usize::MAX;
 }
 
-fn reflection_value(grid: &Vec<Vec<char>>) -> u32 {
+fn off_by_smudge(row1: &Vec<char>, row2: &Vec<char>) -> bool {
+    zip(row1, row2)
+        .into_iter()
+        .map(|(a, b)| if a != b { 1 } else { 0 })
+        .sum::<u32>()
+        == 1
+}
+
+fn find_start_points(grid: &Vec<Vec<char>>, smudge: bool) -> Vec<usize> {
+    let start_points: Vec<usize> = grid[1..]
+        .iter()
+        .enumerate()
+        .map(|(i, row)| match smudge {
+            true => {
+                if off_by_smudge(row, &grid[i]) {
+                    i
+                } else {
+                    usize::MAX
+                }
+            }
+            false => {
+                if row == &grid[i] {
+                    i
+                } else {
+                    usize::MAX
+                }
+            }
+        })
+        .filter(|i| i < &usize::MAX)
+        .collect();
+    start_points
+}
+
+fn reflection_value(grid: &Vec<Vec<char>>, smudge: bool) -> u32 {
     // Vertical Pass
-    let vertical = vertical_scan(grid);
+    let vertical = vertical_scan(grid, smudge);
     if vertical < usize::MAX {
         return (100 * (vertical + 1)).try_into().unwrap();
     }
     // Horizontal Pass
-    let horizontal = vertical_scan(&transpose(grid.clone()));
+    let horizontal = vertical_scan(&transpose(grid.clone()), smudge);
     if horizontal < usize::MAX {
         return (horizontal + 1).try_into().unwrap();
     }
@@ -69,9 +128,15 @@ fn main() {
         .collect::<Vec<Vec<Vec<char>>>>();
 
     // Find reflection point for each grid, total
-    let summary: u32 = grids.iter().map(|grid| reflection_value(grid)).sum();
+    let summary_part_1: u32 = grids.iter().map(|grid| reflection_value(grid, false)).sum();
 
-    println!("{}", summary);
+    println!("{}", summary_part_1);
+
+    // Part 2:
+    // Add in smudge factor (could be neater!)
+    let summary_part_2: u32 = grids.iter().map(|grid| reflection_value(grid, true)).sum();
+
+    println!("{}", summary_part_2);
 }
 
 #[cfg(test)]
