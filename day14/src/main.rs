@@ -1,3 +1,9 @@
+fn horizontal_flip(grid: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    grid.into_iter()
+        .map(|row| row.into_iter().rev().collect::<Vec<char>>())
+        .collect::<Vec<Vec<char>>>()
+}
+
 /// standard 2d array transpose https://stackoverflow.com/a/64499219
 fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>>
 where
@@ -43,15 +49,27 @@ fn tilt_row_left(row: &Vec<char>) -> Vec<char> {
 }
 
 // Always tilt 'left' i.e. for each row 'OO..O.#.O' -> 'OOO...#O.'
-fn tilt_grid_left(grid: &Vec<Vec<char>>) -> Vec<Vec<char>> {
+fn tilt_grid_left(grid: Vec<Vec<char>>) -> Vec<Vec<char>> {
     grid.iter().map(tilt_row_left).collect()
 }
 
-fn tilt_north(grid: &Vec<Vec<char>>) -> Vec<Vec<char>> {
-    transpose(tilt_grid_left(&transpose(grid.to_vec())))
+fn tilt_north(grid: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    transpose(tilt_grid_left(transpose(grid.to_vec())))
 }
 
-fn compute_load(grid: &Vec<Vec<char>>) -> u32 {
+fn tilt_west(grid: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    tilt_grid_left(grid)
+}
+
+fn tilt_east(grid: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    horizontal_flip(tilt_grid_left(horizontal_flip(grid)))
+}
+
+fn tilt_south(grid: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    transpose(horizontal_flip(tilt_grid_left(horizontal_flip(transpose(grid.to_vec())))))
+}
+
+fn compute_load(grid: Vec<Vec<char>>) -> u32 {
     grid.iter()
         .enumerate()
         .map(|(i, row)| {
@@ -64,15 +82,30 @@ fn compute_load(grid: &Vec<Vec<char>>) -> u32 {
         .sum()
 }
 
+// Tilt North, West, South, East, and return resulting grid
+fn cycle(grid: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    tilt_east(tilt_south(tilt_west(tilt_north(grid))))
+}
+
 fn main() {
     // Part 1
     let platform = str_to_grid(include_str!("day14.txt"));
 
-    let tilted_north = tilt_north(&platform);
+    let tilted_north = tilt_north(platform.clone());
 
-    let load_part_1 = compute_load(&tilted_north);
+    let load_part_1 = compute_load(tilted_north);
 
     println!("{}", load_part_1);
+
+    // Part 2
+    // Notice (luckily whilst testing) that we converge on some equilibruim much earlier than 1 billion!
+    let mut cycled = platform;
+    for _ in 0..1000 {
+        cycled = cycle(cycled);
+    }
+    let load_part_2 = compute_load(cycled);
+
+    println!("{}", load_part_2);
 }
 
 #[cfg(test)]
