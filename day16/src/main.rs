@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{cmp::max, collections::HashSet};
 
 fn str_to_grid(grid_str: &str) -> Vec<Vec<char>> {
     grid_str
@@ -207,55 +207,111 @@ fn step(beam: &Beam, grid: &Vec<Vec<char>>) -> Vec<Beam> {
     }
 }
 
-fn main() {
-    // Part 1
-    let grid = str_to_grid(include_str!("day16.txt"));
-
-    let mut visited = HashSet::<Beam>::new();
-    visited.insert(Beam {
-        position: (0, 0),
-        direction: (0, 1),
-    });
-
-    // Initial 'live' beam starts at 0,0 and heading right
-    let mut beams = HashSet::<Beam>::new();
-    beams.insert(Beam {
-        position: (0, 0),
-        direction: (0, 1),
-    });
-
+fn energise_beam(mut beams: HashSet<Beam>, visited: &mut HashSet<Beam>, grid: &Vec<Vec<char>>) {
     // Loop until we don't get a change in visited beam map
     let mut prev_n_visited = 0;
     while prev_n_visited != visited.len() {
         prev_n_visited = visited.len();
         beams = beams
             .iter()
-            .map(|beam| {
-                let next_beams = step(beam, &grid);
-                for next_beam in &next_beams {
-                    visited.insert(next_beam.clone());
-                }
-                next_beams
-            })
+            .map(|beam| step(beam, grid))
             .flat_map(|b| b)
+            .filter(|beam| !&visited.contains(beam))
             .collect::<HashSet<Beam>>();
-    }
-
-    // todo performance improvement; prune 'beams' as we go if they are already in visited
-
-    // Show beams!
-    let positions: HashSet<(usize, usize)> = visited.iter().map(|b| b.position).collect();
-    for (y, row) in grid.iter().enumerate() {
-        for (x, &_ch) in row.iter().enumerate() {
-            let print_char = if positions.contains(&(x, y)) {
-                '#'
-            } else {
-                '.'
-            };
-            print!("{}", print_char);
+        for beam in &beams {
+            visited.insert(beam.clone());
         }
-        println!();
+    }
+}
+
+fn energise_with_start_beam(start_beam: Beam, grid: &Vec<Vec<char>>) -> HashSet<Beam> {
+    let mut visited = HashSet::<Beam>::new();
+    visited.insert(start_beam.clone());
+
+    // Initial 'live' beam starts at 0,0 and heading right
+    let mut beams = HashSet::<Beam>::new();
+    beams.insert(start_beam.clone());
+
+    energise_beam(beams, &mut visited, grid);
+    visited
+}
+
+fn main() {
+    // Part 1
+    let grid = str_to_grid(include_str!("day16.txt"));
+
+    let start_beam = Beam {
+        position: (0, 0),
+        direction: (0, 1),
+    };
+    let visited = energise_with_start_beam(start_beam, &grid);
+
+    // Find unique positions
+    let positions: HashSet<(usize, usize)> = visited.iter().map(|b| b.position).collect();
+    println!("{}", positions.len());
+
+    // Part 2, try each start position
+    let mut max_energised_positions = 0;
+    // Top grid
+    for i in 0..grid[0].len() {
+        let start_beam = Beam {
+            position: (0, i),
+            direction: (1, 0),
+        };
+        max_energised_positions = max(
+            max_energised_positions,
+            energise_with_start_beam(start_beam, &grid)
+                .iter()
+                .map(|b| b.position)
+                .collect::<HashSet<(usize, usize)>>()
+                .len(),
+        )
+    }
+    // Bottom grid
+    for i in 0..grid[0].len() {
+        let start_beam = Beam {
+            position: (grid.len() - 1, i),
+            direction: (-1, 0),
+        };
+        max_energised_positions = max(
+            max_energised_positions,
+            energise_with_start_beam(start_beam, &grid)
+                .iter()
+                .map(|b| b.position)
+                .collect::<HashSet<(usize, usize)>>()
+                .len(),
+        )
+    }
+    // Left grid
+    for i in 0..grid.len() {
+        let start_beam = Beam {
+            position: (0, i),
+            direction: (0, 1),
+        };
+        max_energised_positions = max(
+            max_energised_positions,
+            energise_with_start_beam(start_beam, &grid)
+                .iter()
+                .map(|b| b.position)
+                .collect::<HashSet<(usize, usize)>>()
+                .len(),
+        )
+    }
+    // Right grid
+    for i in 0..grid.len() {
+        let start_beam = Beam {
+            position: (grid[0].len() - 1, i),
+            direction: (0, -1),
+        };
+        max_energised_positions = max(
+            max_energised_positions,
+            energise_with_start_beam(start_beam, &grid)
+                .iter()
+                .map(|b| b.position)
+                .collect::<HashSet<(usize, usize)>>()
+                .len(),
+        )
     }
 
-    println!("{}", positions.len());
+    println!("{}", max_energised_positions);
 }
